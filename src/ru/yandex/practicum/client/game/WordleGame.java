@@ -80,7 +80,7 @@ public class WordleGame {
         }
 
         logger.log(TAG, "Слово не отгадано, осталось попыток: " + steps);
-        return makeResume(candidate);
+        return getCandidatePattern(candidate);
     }
 
     public String getState() {
@@ -89,14 +89,14 @@ public class WordleGame {
 
     public String guessWord(String rawCandidate) {
         String candidate = normalizeWord(rawCandidate);
-        String candidatePattern = makeResume(candidate);
+        String candidatePattern = getCandidatePattern(candidate);
         if (candidatePattern.isEmpty()) {
             return leftWords.getRandomWord(true);
         }
         for (int c = 0; c < candidate.length(); c++) {
             switch (candidatePattern.charAt(c)) {
                 case NOT_IN_WORD_MASK:
-                    skipLetters.add(candidate.charAt(c));
+                    // обрабатывается отдельно из-за возможного пересечения с WRONG_PLACE_MASK (см. getCandidatePattern)
                     break;
                 case WRONG_PLACE_MASK:
                     maybeLetters.add(candidate.charAt(c));
@@ -112,6 +112,12 @@ public class WordleGame {
         for (Character c : okLetters) {
             if (c != null) {
                 allLetters.add(c);
+            }
+        }
+        for (int i = 0; i < candidate.length(); i++) {
+            char ch = candidate.charAt(i);
+            if (!allLetters.contains(ch)) {
+                skipLetters.add(ch);
             }
         }
 
@@ -157,17 +163,38 @@ public class WordleGame {
         }
     }
 
-    private String makeResume(String candidate) {
-        StringBuilder sb = new StringBuilder();
-        for (int c = 0; c < candidate.length(); c++) {
-            if (answer.charAt(c) == candidate.charAt(c)) {
-                sb.append(RIGHT_PLACE_MASK);
-            } else if (answer.contains(String.valueOf(candidate.charAt(c)))) {
-                sb.append(WRONG_PLACE_MASK);
+    private String getCandidatePattern(String candidate) {
+        Map<Character, Integer> charsCount = new HashMap<>();
+        char[] wordPattern = new char[WORD_LENGTH];
+        for (int i = 0; i < answer.length(); i++) {
+            char ch = answer.charAt(i);
+            if (charsCount.containsKey(ch)) {
+                charsCount.put(ch, charsCount.get(ch) + 1);
             } else {
-                sb.append(NOT_IN_WORD_MASK);
+                charsCount.put(ch, 1);
             }
         }
-        return sb.toString();
+        for (int c = 0; c < candidate.length(); c++) {
+            char candidateChar = candidate.charAt(c);
+            if (answer.charAt(c) == candidateChar) {
+                wordPattern[c] = RIGHT_PLACE_MASK;
+                charsCount.put(candidateChar, charsCount.get(candidateChar) - 1);
+            } else if (charsCount.getOrDefault(candidateChar, 0) == 0) {
+                // В оригинальной wordle подсвечивается только то, количество букв, которое действительно содержится в слове.
+                // Например, загадано слово "trail", тогда при вводе "teRra" подсветит только первую букву R!
+                wordPattern[c] = NOT_IN_WORD_MASK;
+            }
+        }
+        for (int c = 0; c < candidate.length(); c++) {
+            char candidateChar = candidate.charAt(c);
+            if (charsCount.getOrDefault(candidateChar, 0) != 0) {
+                wordPattern[c] = WRONG_PLACE_MASK;
+                charsCount.put(candidateChar, charsCount.get(candidateChar) - 1);
+            } else if (wordPattern[c] == 0) {
+                wordPattern[c] = NOT_IN_WORD_MASK;
+            }
+        }
+
+        return String.valueOf(wordPattern);
     }
 }
