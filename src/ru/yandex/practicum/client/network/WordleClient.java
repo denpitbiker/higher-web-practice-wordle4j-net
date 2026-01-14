@@ -33,28 +33,28 @@ public class WordleClient {
         this.logger = logger;
         this.apiUrlBuilder = new ApiUrlBuilder(ip, String.valueOf(port));
         httpClient = HttpClient.newHttpClient();
-        logger.log(TAG, "Wordle client created");
+        logger.log(TAG, "Создан http-клиент Wordle");
     }
 
     public void sendResult(WordleClientResult result) throws IOException, InterruptedException {
-        logger.log(TAG, "Sending result for user: " + result.getUsername());
+        logger.log(TAG, "Обновление статистики пользователя: " + result.getUsername());
         String body = gson.toJson(result);
         URI resultURI = apiUrlBuilder.buildUrl(STATISTICS_ROUTE);
         HttpRequest httpRequest = HttpRequest.newBuilder().uri(resultURI)
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
         HttpResponse<String> httpResponse = httpClient.send(httpRequest, bodyHandler);
-        logger.log(TAG, "Got response from sending user results, code: " + httpResponse.statusCode());
+        logger.log(TAG, "Получен результат обновления статистики пользователя, код: " + httpResponse.statusCode());
         if (httpResponse.statusCode() != ResponseCode.SUCCESS) {
             throw new RuntimeException("Failed : HTTP error code : " + httpResponse.statusCode());
         }
     }
 
     public WordleServerStatistic getStatistic(String username) throws IOException, InterruptedException {
-        logger.log(TAG, "Fetching statistics for user: " + username);
+        logger.log(TAG, "Запрос статистики для пользователя: " + username);
         URI uri = apiUrlBuilder.buildUrl(STATISTICS_ROUTE, new AbstractMap.SimpleEntry<>(USERNAME_PARAM_KEY, username));
         HttpRequest httpRequest = HttpRequest.newBuilder().uri(uri).GET().build();
         HttpResponse<String> httpResponse = httpClient.send(httpRequest, bodyHandler);
-        logger.log(TAG, "Got response from fetching user statistics, code: " + httpResponse.statusCode());
+        logger.log(TAG, "Получена статистика по пользователю, код: " + httpResponse.statusCode());
         if (httpResponse.statusCode() == ResponseCode.SUCCESS) {
             return gson.fromJson(httpResponse.body(), new WordleServerStatisticTypeToken().getType());
         } else {

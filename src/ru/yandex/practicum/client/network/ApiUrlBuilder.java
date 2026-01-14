@@ -1,6 +1,8 @@
 package ru.yandex.practicum.client.network;
 
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class ApiUrlBuilder {
@@ -32,6 +34,7 @@ public class ApiUrlBuilder {
                     queriesString.append(QUERIES_SEPARATOR);
                 }
         }
-        return URI.create(host + route + QUERIES_BEGIN + queriesString);
+        String encodedQueries = URLEncoder.encode(queriesString.toString(), StandardCharsets.UTF_8);
+        return URI.create(host + route + QUERIES_BEGIN + encodedQueries);
     }
 }

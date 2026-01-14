@@ -18,6 +18,10 @@ public class WordleDictionary {
         return words;
     }
 
+    public int getWordLength() {
+        return wordLength;
+    }
+
     public boolean contains(String candidate) {
         return words.contains(candidate);
     }

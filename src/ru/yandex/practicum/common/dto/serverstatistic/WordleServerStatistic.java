@@ -5,7 +5,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 public class WordleServerStatistic {
@@ -56,12 +55,6 @@ public class WordleServerStatistic {
         if (beforeCount < 0 || afterCount < 0) return Optional.empty();
 
         int ind = findUserIndex(username);
-        for (int i = 0; i < rating.size(); i++) {
-            if (rating.get(i).getUsername().equalsIgnoreCase(username)) {
-                ind = i;
-                break;
-            }
-        }
         if (ind == -1) {
             return Optional.empty();
         }
@@ -71,7 +64,7 @@ public class WordleServerStatistic {
             sliceStartPosition = 0;
             sliceEndPosition = min(rating.size(), beforeCount + afterCount);
         } else {
-            sliceStartPosition = max(0, ind - beforeCount);
+            sliceStartPosition = ind;
             sliceEndPosition = min(rating.size(), ind + afterCount + 1);
         }
         WordleServerStatistic userStatistics =

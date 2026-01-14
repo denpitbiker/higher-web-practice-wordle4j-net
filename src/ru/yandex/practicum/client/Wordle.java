@@ -21,6 +21,8 @@ public class Wordle {
     private final String TAG = getClass().getSimpleName();
     private static final String LOGS_FILE = "log.txt";
     private static final String WORDS_FILE = "words_ru.txt";
+    private static final String USERNAME_CHECK_REGEX = "[A-zА-я0-9 ]+";
+
 
     private final Logger logger;
     private final WordleClient wordleClient;
@@ -49,21 +51,18 @@ public class Wordle {
         }
     }
 
-    private void playGame(WordleGame wordleGame) throws WordleGameException, IOException, InterruptedException {
+    private void playGame(WordleGame wordleGame) throws IOException, InterruptedException {
         logger.log(TAG, "Начало игры");
         Scanner scanner = new Scanner(System.in);
         wordleGame.reset();
-        String lastResume = "";
         String lastCandidate = "";
-        int usedGuess = 0;
         System.out.println("Угадайте слово из пяти букв, у вас шесть попыток \nEnter - ввод слова или подсказка");
         while (!wordleGame.isEnd()) {
             logger.log(TAG, "Ждём ввода слова");
             String candidate = scanner.nextLine();
-            String guess = wordleGame.guessWord(lastCandidate, lastResume);
+            String guess = wordleGame.guessWord(lastCandidate);
             if (candidate.isBlank()) {
                 logger.log(TAG, "Пользователь воспользовался подсказкой: " + guess);
-                usedGuess++;
                 candidate = guess;
                 System.out.println(candidate);
             } else {
@@ -76,7 +75,6 @@ public class Wordle {
                 String state = wordleGame.getState();
                 logger.log(TAG, "Результат проверки слова получен");
                 System.out.println(resume + " " + state);
-                lastResume = resume;
                 lastCandidate = candidate;
             } catch (WordleGameException e) {
                 System.out.println(e.getMessage());
@@ -88,11 +86,14 @@ public class Wordle {
         logger.log(TAG, "Игра окончена");
         if (lastCandidate.equalsIgnoreCase(wordleGame.getAnswer())) {
             System.out.println("Поздравляем с победой!");
-            System.out.println("Если хотите опубликовать результат, введите свой никнейм:");
-            String username = scanner.nextLine();
-            if (username.isBlank()) {
-                return;
-            }
+            String username;
+            do {
+                System.out.println("Если хотите опубликовать результат, введите свой никнейм (допустимы буквы, цифры, пробел):");
+                username = scanner.nextLine();
+                if (username.isBlank()) {
+                    return;
+                }
+            } while (!username.matches(USERNAME_CHECK_REGEX));
             sendResult(new WordleClientResult(username));
         }
         scanner.close();
@@ -101,10 +102,11 @@ public class Wordle {
     private void sendResult(WordleClientResult result) throws IOException, InterruptedException {
         wordleClient.sendResult(result);
         WordleServerStatistic statistic = wordleClient.getStatistic(result.getUsername());
-        System.out.println("Статистика побед:");
+        System.out.println("  № | Никнейм                    | Статистика побед");
+        System.out.println("____________________________________________________");
         for (int pos = 0; pos < statistic.getRating().size(); pos++) {
             WordleServerStatisticItem item = statistic.getRating().get(pos);
-            System.out.printf("%d. %s:\t%d\n", pos + statistic.getStartPosition() + 1, item.getUsername(), item.getCount());
+            System.out.printf("%3d | %-25s\t | %d\n", pos + statistic.getStartPosition() + 1, item.getUsername(), item.getCount());
         }
     }
 }

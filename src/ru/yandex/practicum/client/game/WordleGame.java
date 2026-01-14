@@ -29,6 +29,7 @@ public class WordleGame {
 
     private final String TAG = getClass().getSimpleName();
     private final WordleDictionary gameDictionary;
+    private final WordleDictionary leftWords;
     private final Set<String> guesses = new HashSet<>();
     private final Logger logger;
     private final Set<Character> skipLetters = new HashSet<>();
@@ -43,6 +44,7 @@ public class WordleGame {
     public WordleGame(Logger logger, WordleDictionary dictionary) {
         this.logger = logger;
         this.gameDictionary = dictionary;
+        this.leftWords = new WordleDictionary(dictionary.getWordLength());
         logger.log(TAG, "В словарь игры загружено " + gameDictionary.size() + " слов");
     }
 
@@ -61,8 +63,8 @@ public class WordleGame {
         maybeLetters.clear();
         okLetters.clear();
         okLetters.addAll(Arrays.asList(new Character[WORD_LENGTH]));
-
-        answer = gameDictionary.getRandomWord();
+        leftWords.addAll(gameDictionary.getAll());
+        answer = leftWords.getRandomWord();
         logger.log(TAG, "Игра перезапущена, новое слово: " + answer);
     }
 
@@ -85,13 +87,14 @@ public class WordleGame {
         return String.format("попыток %d/%d", Math.abs(steps), MAX_STEPS);
     }
 
-    public String guessWord(String rawCandidate, String resume) {
+    public String guessWord(String rawCandidate) {
         String candidate = normalizeWord(rawCandidate);
-        if (resume.isEmpty()) {
-            return gameDictionary.getRandomWord(true);
+        String candidatePattern = makeResume(candidate);
+        if (candidatePattern.isEmpty()) {
+            return leftWords.getRandomWord(true);
         }
         for (int c = 0; c < candidate.length(); c++) {
-            switch (resume.charAt(c)) {
+            switch (candidatePattern.charAt(c)) {
                 case NOT_IN_WORD_MASK:
                     skipLetters.add(candidate.charAt(c));
                     break;
@@ -102,14 +105,18 @@ public class WordleGame {
                     okLetters.set(c, candidate.charAt(c));
                     break;
                 default:
-                    throw new RuntimeException("Неизвестный символ в коде слова: " + resume.charAt(c));
+                    throw new RuntimeException("Неизвестный символ в паттерне слова: " + candidatePattern.charAt(c));
             }
         }
         Set<Character> allLetters = new HashSet<>(maybeLetters);
-        allLetters.addAll(okLetters);
+        for (Character c : okLetters) {
+            if (c != null) {
+                allLetters.add(c);
+            }
+        }
 
         List<String> nextWords = new ArrayList<>();
-        for (String word : gameDictionary.getAll()) {
+        for (String word : leftWords.getAll()) {
             if (!skipLetters.isEmpty() && wordHasAnyLetter(word, skipLetters) > 0) { //не содержит неправильных букв
                 if (word.equals(answer)) {
                     throw new RuntimeException("Ошибочно удален верный ответ " + answer);
@@ -122,7 +129,7 @@ public class WordleGame {
                 }
                 continue;
             }
-            if (!okLetters.isEmpty() && !wordHasLettersInPlace(word, okLetters)) {
+            if (!wordHasLettersInPlace(word, okLetters)) {
                 if (word.equals(answer)) {
                     throw new RuntimeException("Ошибочно удален верный ответ " + answer);
                 }
@@ -130,12 +137,12 @@ public class WordleGame {
             }
             nextWords.add(word);
         }
-        gameDictionary.clear();
-        gameDictionary.addAll(nextWords);
+        leftWords.clear();
+        leftWords.addAll(nextWords);
         if (nextWords.isEmpty()) {
             throw new WordleEmptyCandidatesException(skipLetters, maybeLetters, okLetters);
         }
-        return gameDictionary.getRandomWord(true); //в идеале будет 1 из 1
+        return leftWords.getRandomWord(true);
     }
 
     private void validateWord(String candidate) throws WordleGameException {
