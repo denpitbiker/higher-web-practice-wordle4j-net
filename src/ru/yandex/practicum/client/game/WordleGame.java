@@ -10,88 +10,90 @@ import static ru.yandex.practicum.client.util.WordUtil.wordHasLettersInPlace;
 import static ru.yandex.practicum.client.util.WordUtil.wordHasAllLetters;
 import static ru.yandex.practicum.client.util.WordUtil.wordHasAnyLetter;
 
-/*
-    в этом классе хранится словарь и состояние игры
-    текущий шаг
-    всё что пользователь вводил
-    правильный ответ
-
-    в этом классе нужны методы, которые
-    проанализируют совпадение слова с ответом
-    предложат слово-подсказку с учётом всего, что вводил пользователь ранее
-
-    не забудьте про специальные типы исключений для игровых и неигровых ошибок
- */
 public class WordleGame {
     private static final char NOT_IN_WORD_MASK = '-';
     private static final char WRONG_PLACE_MASK = '^';
     private static final char RIGHT_PLACE_MASK = '+';
 
     private final String TAG = getClass().getSimpleName();
-    private final WordleDictionary gameDictionary;
-    private final WordleDictionary leftWords;
-    private final Set<String> guesses = new HashSet<>();
+    private final WordleGameState state;
     private final Logger logger;
-    private final Set<Character> skipLetters = new HashSet<>();
-    private final Set<Character> maybeLetters = new HashSet<>();
-    private final List<Character> okLetters = new ArrayList<>();
-    private String answer;
-    private int steps = -1;
 
     public static final int WORD_LENGTH = 5;
     public static final int MAX_STEPS = 6;
 
     public WordleGame(Logger logger, WordleDictionary dictionary) {
         this.logger = logger;
-        this.gameDictionary = dictionary;
-        this.leftWords = new WordleDictionary(dictionary.getWordLength());
-        logger.log(TAG, "В словарь игры загружено " + gameDictionary.size() + " слов");
+        this.state = new WordleGameState(dictionary);
+        logger.log(TAG, "В словарь игры загружено " + dictionary.size() + " слов");
     }
 
     public String getAnswer() {
-        return answer;
+        return state.getAnswer();
+    }
+
+    public boolean hasUsedHint() {
+        return state.hasUsedHint();
+    }
+
+    public int getUsedAttempts() {
+        return state.getUsedAttempts();
+    }
+
+    public WordleGameState.GameProgressState getGameProgressState() {
+        return state.getGameProgressState();
     }
 
     public boolean isEnd() {
-        return steps <= 0;
+        return state.getGameProgressState() == WordleGameState.GameProgressState.NO_ATTEMPTS ||
+                state.getGameProgressState() == WordleGameState.GameProgressState.WIN;
     }
 
-    public void reset() {
+    public void reset() throws WordleGameEmptyWordsCollectionException {
         logger.log(TAG, "Перезапуск игры");
-        steps = MAX_STEPS;
-        skipLetters.clear();
-        maybeLetters.clear();
-        okLetters.clear();
-        okLetters.addAll(Arrays.asList(new Character[WORD_LENGTH]));
-        leftWords.addAll(gameDictionary.getAll());
-        answer = leftWords.getRandomWord();
-        logger.log(TAG, "Игра перезапущена, новое слово: " + answer);
+        state.reset();
+        logger.log(TAG, "Игра перезапущена, новое слово: " + state.getAnswer());
     }
 
-    public String checkWord(String rawCandidate) throws WordleGameException {
+    public String checkWord(String rawCandidate) throws WordleGameNoAttemptsLeftException, WordleGameWrongWordLengthException,
+            WordleGameIncorrectWordException, WordleGameWordNotFoundInDictionary {
         logger.log(TAG, "Проверка введенного слова");
+        throwIfNoAttemptsLeft();
         String candidate = normalizeWord(rawCandidate);
         validateWord(candidate);
-        steps--;
-        if (candidate.equalsIgnoreCase(answer)) {
+        state.increaseUsedAttempts();
+        state.setLastWord(candidate);
+        if (candidate.equalsIgnoreCase(state.getAnswer())) {
             logger.log(TAG, "Слово отгадано");
-            steps *= -1;
+            state.setGameProgressState(WordleGameState.GameProgressState.WIN);
             return "+++++ слово отгадано";
         }
+        if (state.getUsedAttempts() == MAX_STEPS) {
+            logger.log(TAG, "Закончились попытки");
+            state.setGameProgressState(WordleGameState.GameProgressState.NO_ATTEMPTS);
+        }
 
-        logger.log(TAG, "Слово не отгадано, осталось попыток: " + steps);
+        logger.log(TAG, "Слово не отгадано, осталось попыток: " + (MAX_STEPS - state.getUsedAttempts()));
         return getCandidatePattern(candidate);
     }
 
     public String getState() {
-        return String.format("попыток %d/%d", Math.abs(steps), MAX_STEPS);
+        return String.format("попыток %d/%d", MAX_STEPS - state.getUsedAttempts(), MAX_STEPS);
     }
 
-    public String guessWord(String rawCandidate) {
-        String candidate = normalizeWord(rawCandidate);
+    public String guessWord() throws WordleGameEmptyWordsCollectionException, WordleGameNoAttemptsLeftException {
+        logger.log(TAG, "Поиск подсказки");
+        throwIfNoAttemptsLeft();
+        state.setHasUsedHint(true);
+        WordleDictionary leftWords = state.getLeftWords();
+        String candidate = normalizeWord(state.getLastWord());
         String candidatePattern = getCandidatePattern(candidate);
+        String guessedWord;
         if (candidatePattern.isEmpty()) {
-            return leftWords.getRandomWord(true);
+            guessedWord = leftWords.getRandomWord(true);
+            logger.log(TAG, "Пользователь еще не вводил слова, подсказываем первое попавшееся слово: " + guessedWord);
+            state.setLastWord(guessedWord);
+            return guessedWord;
         }
         for (int c = 0; c < candidate.length(); c++) {
             switch (candidatePattern.charAt(c)) {
@@ -99,17 +101,17 @@ public class WordleGame {
                     // обрабатывается отдельно из-за возможного пересечения с WRONG_PLACE_MASK (см. getCandidatePattern)
                     break;
                 case WRONG_PLACE_MASK:
-                    maybeLetters.add(candidate.charAt(c));
+                    state.getMaybeLetters().add(candidate.charAt(c));
                     break;
                 case RIGHT_PLACE_MASK:
-                    okLetters.set(c, candidate.charAt(c));
+                    state.getOkLetters().set(c, candidate.charAt(c));
                     break;
                 default:
                     throw new RuntimeException("Неизвестный символ в паттерне слова: " + candidatePattern.charAt(c));
             }
         }
-        Set<Character> allLetters = new HashSet<>(maybeLetters);
-        for (Character c : okLetters) {
+        Set<Character> allLetters = new HashSet<>(state.getMaybeLetters());
+        for (Character c : state.getOkLetters()) {
             if (c != null) {
                 allLetters.add(c);
             }
@@ -117,28 +119,22 @@ public class WordleGame {
         for (int i = 0; i < candidate.length(); i++) {
             char ch = candidate.charAt(i);
             if (!allLetters.contains(ch)) {
-                skipLetters.add(ch);
+                state.getSkipLetters().add(ch);
             }
         }
 
         List<String> nextWords = new ArrayList<>();
         for (String word : leftWords.getAll()) {
-            if (!skipLetters.isEmpty() && wordHasAnyLetter(word, skipLetters) > 0) { //не содержит неправильных букв
-                if (word.equals(answer)) {
-                    throw new RuntimeException("Ошибочно удален верный ответ " + answer);
-                }
+            if (!state.getSkipLetters().isEmpty() && wordHasAnyLetter(word, state.getSkipLetters()) > 0) { //не содержит неправильных букв
+                throwIfEqualToAnswer(word);
                 continue;
             }
             if (!allLetters.isEmpty() && !wordHasAllLetters(word, allLetters)) { //содержит правильные буквы по максимуму
-                if (word.equals(answer)) {
-                    throw new RuntimeException("Ошибочно удален верный ответ " + answer);
-                }
+                throwIfEqualToAnswer(word);
                 continue;
             }
-            if (!wordHasLettersInPlace(word, okLetters)) {
-                if (word.equals(answer)) {
-                    throw new RuntimeException("Ошибочно удален верный ответ " + answer);
-                }
+            if (!wordHasLettersInPlace(word, state.getOkLetters())) {
+                throwIfEqualToAnswer(word);
                 continue;
             }
             nextWords.add(word);
@@ -146,24 +142,36 @@ public class WordleGame {
         leftWords.clear();
         leftWords.addAll(nextWords);
         if (nextWords.isEmpty()) {
-            throw new WordleEmptyCandidatesException(skipLetters, maybeLetters, okLetters);
+            throw new WordleEmptyCandidatesException(state.getSkipLetters(), state.getMaybeLetters(), state.getOkLetters());
         }
-        return leftWords.getRandomWord(true);
+        guessedWord = leftWords.getRandomWord(true);
+        logger.log(TAG, "Найдена подсказка, на основе имеющихся знаний: " + guessedWord);
+        state.setLastWord(guessedWord);
+        return guessedWord;
     }
 
-    private void validateWord(String candidate) throws WordleGameException {
+    private void throwIfEqualToAnswer(String word) {
+        if (word.equals(getAnswer())) {
+            throw new RuntimeException("Ошибочно удален верный ответ " + getAnswer());
+        }
+    }
+
+    private void validateWord(String candidate) throws WordleGameWrongWordLengthException,
+            WordleGameIncorrectWordException, WordleGameWordNotFoundInDictionary {
+        WordleDictionary gameDictionary = state.getGameDictionary();
         if (candidate.length() != WORD_LENGTH) {
             throw new WordleGameWrongWordLengthException(candidate);
         }
         if (!gameDictionary.isCorrectWord(candidate)) {
-            throw new WordleGameWrongWordException(candidate);
+            throw new WordleGameIncorrectWordException(candidate);
         }
         if (!gameDictionary.contains(candidate)) {
-            throw new WordleGameNoSuchWordException(candidate);
+            throw new WordleGameWordNotFoundInDictionary(candidate);
         }
     }
 
     private String getCandidatePattern(String candidate) {
+        String answer = getAnswer();
         Map<Character, Integer> charsCount = new HashMap<>();
         char[] wordPattern = new char[WORD_LENGTH];
         for (int i = 0; i < answer.length(); i++) {
@@ -196,5 +204,9 @@ public class WordleGame {
         }
 
         return String.valueOf(wordPattern);
+    }
+
+    private void throwIfNoAttemptsLeft() throws WordleGameNoAttemptsLeftException {
+        if (state.getUsedAttempts() == MAX_STEPS) throw new WordleGameNoAttemptsLeftException();
     }
 }

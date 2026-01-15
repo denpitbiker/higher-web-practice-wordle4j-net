@@ -3,6 +3,7 @@ package ru.yandex.practicum.client;
 import ru.yandex.practicum.client.game.WordleDictionary;
 import ru.yandex.practicum.client.game.WordleDictionaryLoader;
 import ru.yandex.practicum.client.game.WordleGame;
+import ru.yandex.practicum.client.game.WordleGameState;
 import ru.yandex.practicum.client.network.WordleClient;
 import ru.yandex.practicum.client.util.Logger;
 import ru.yandex.practicum.common.dto.clientresult.WordleClientResult;
@@ -22,6 +23,7 @@ public class Wordle {
     private static final String LOGS_FILE = "log.txt";
     private static final String WORDS_FILE = "words_ru.txt";
     private static final String USERNAME_CHECK_REGEX = "[A-zА-я0-9 ]+";
+    private static final String VALID_CHARS_REGEX = "[А-я]+";
 
 
     private final Logger logger;
@@ -40,7 +42,7 @@ public class Wordle {
         ) {
             try {
                 WordleDictionary wordleDictionary =
-                        new WordleDictionaryLoader(logger).loadWords(WORDS_FILE, WordleGame.WORD_LENGTH);
+                        new WordleDictionaryLoader(logger).loadWords(WORDS_FILE, WordleGame.WORD_LENGTH, VALID_CHARS_REGEX);
                 WordleGame wordleGame = new WordleGame(logger, wordleDictionary);
                 new Wordle(logger).playGame(wordleGame);
             } catch (Exception e) {
@@ -51,31 +53,26 @@ public class Wordle {
         }
     }
 
-    private void playGame(WordleGame wordleGame) throws IOException, InterruptedException {
+    private void playGame(WordleGame wordleGame) throws IOException, InterruptedException, WordleGameException {
         logger.log(TAG, "Начало игры");
         Scanner scanner = new Scanner(System.in);
         wordleGame.reset();
-        String lastCandidate = "";
         System.out.println("Угадайте слово из пяти букв, у вас шесть попыток \nEnter - ввод слова или подсказка");
         while (!wordleGame.isEnd()) {
             logger.log(TAG, "Ждём ввода слова");
             String candidate = scanner.nextLine();
-            String guess = wordleGame.guessWord(lastCandidate);
             if (candidate.isBlank()) {
-                logger.log(TAG, "Пользователь воспользовался подсказкой: " + guess);
-                candidate = guess;
+                candidate = wordleGame.guessWord();
+                logger.log(TAG, "Пользователь воспользовался подсказкой: " + candidate);
                 System.out.println(candidate);
             } else {
                 logger.log(TAG, "Пользователь ввёл слово: " + candidate);
             }
 
-            String resume;
             try {
-                resume = wordleGame.checkWord(candidate);
-                String state = wordleGame.getState();
-                logger.log(TAG, "Результат проверки слова получен");
-                System.out.println(resume + " " + state);
-                lastCandidate = candidate;
+                String checkResult = wordleGame.checkWord(candidate) + ' ' + wordleGame.getState();
+                logger.log(TAG, "Результат проверки слова получен: "  + checkResult);
+                System.out.println(checkResult);
             } catch (WordleGameException e) {
                 System.out.println(e.getMessage());
                 logger.log(TAG, "Ошибка при проверке слова");
@@ -83,30 +80,37 @@ public class Wordle {
             }
         }
         System.out.println("Правильный ответ: " + wordleGame.getAnswer());
-        logger.log(TAG, "Игра окончена");
-        if (lastCandidate.equalsIgnoreCase(wordleGame.getAnswer())) {
+        String gameResultLog = "Игра окончена: " + wordleGame.getGameProgressState() + ", попыток: " +
+                wordleGame.getUsedAttempts() + ", пользовался подсказкой: " + wordleGame.hasUsedHint(); // there's no real impact using StringBuilder
+        logger.log(TAG, gameResultLog);
+        if (wordleGame.getGameProgressState() == WordleGameState.GameProgressState.WIN) {
             System.out.println("Поздравляем с победой!");
             String username;
             do {
                 System.out.println("Если хотите опубликовать результат, введите свой никнейм (допустимы буквы, цифры, пробел):");
+                logger.log(TAG, "Запрос никнейма для статистики");
                 username = scanner.nextLine();
                 if (username.isBlank()) {
+                    logger.log(TAG, "Пользователь отказался от отправки результата");
                     return;
                 }
+                logger.log(TAG, "Пользователь ввел никнейм: " + username);
             } while (!username.matches(USERNAME_CHECK_REGEX));
-            sendResult(new WordleClientResult(username));
+            sendResult(new WordleClientResult(username, wordleGame.getUsedAttempts(), wordleGame.hasUsedHint()));
         }
         scanner.close();
     }
 
     private void sendResult(WordleClientResult result) throws IOException, InterruptedException {
+        logger.log(TAG, "Отправка статистики на сервер");
         wordleClient.sendResult(result);
-        WordleServerStatistic statistic = wordleClient.getStatistic(result.getUsername());
+        WordleServerStatistic statistic = wordleClient.getStatistic(result.username());
         System.out.println("  № | Никнейм                    | Статистика побед");
         System.out.println("____________________________________________________");
         for (int pos = 0; pos < statistic.getRating().size(); pos++) {
             WordleServerStatisticItem item = statistic.getRating().get(pos);
             System.out.printf("%3d | %-25s\t | %d\n", pos + statistic.getStartPosition() + 1, item.getUsername(), item.getCount());
         }
+        logger.log(TAG, "Показана таблица результатов");
     }
 }

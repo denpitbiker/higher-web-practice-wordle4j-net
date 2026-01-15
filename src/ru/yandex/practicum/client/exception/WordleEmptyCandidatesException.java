@@ -22,7 +22,7 @@ public class WordleEmptyCandidatesException extends RuntimeException {
         StringBuilder sb = new StringBuilder();
         for (Character c : chars) {
             if (c == null) {
-                sb.append("_");
+                sb.append('_');
                 continue;
             }
             sb.append(c);

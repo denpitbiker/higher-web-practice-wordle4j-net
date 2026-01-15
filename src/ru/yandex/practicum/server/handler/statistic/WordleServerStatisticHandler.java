@@ -73,7 +73,7 @@ public class WordleServerStatisticHandler extends BaseHttpHandler {
     }
 
     private WordleServerStatisticItem postStatistics(WordleClientResult result) throws IOException {
-        WordleServerStatisticItem item = statisticsCache.incrementUserStatistic(result.getUsername());
+        WordleServerStatisticItem item = statisticsCache.incrementUserStatistic(result.username());
         loader.save(statisticsCache);
         return item;
     }

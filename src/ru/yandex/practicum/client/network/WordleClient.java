@@ -37,16 +37,14 @@ public class WordleClient {
     }
 
     public void sendResult(WordleClientResult result) throws IOException, InterruptedException {
-        logger.log(TAG, "Обновление статистики пользователя: " + result.getUsername());
+        logger.log(TAG, "Обновление статистики пользователя: " + result.username());
         String body = gson.toJson(result);
         URI resultURI = apiUrlBuilder.buildUrl(STATISTICS_ROUTE);
         HttpRequest httpRequest = HttpRequest.newBuilder().uri(resultURI)
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
         HttpResponse<String> httpResponse = httpClient.send(httpRequest, bodyHandler);
         logger.log(TAG, "Получен результат обновления статистики пользователя, код: " + httpResponse.statusCode());
-        if (httpResponse.statusCode() != ResponseCode.SUCCESS) {
-            throw new RuntimeException("Failed : HTTP error code : " + httpResponse.statusCode());
-        }
+        throwIfNotSuccessResponse(httpResponse);
     }
 
     public WordleServerStatistic getStatistic(String username) throws IOException, InterruptedException {
@@ -55,10 +53,13 @@ public class WordleClient {
         HttpRequest httpRequest = HttpRequest.newBuilder().uri(uri).GET().build();
         HttpResponse<String> httpResponse = httpClient.send(httpRequest, bodyHandler);
         logger.log(TAG, "Получена статистика по пользователю, код: " + httpResponse.statusCode());
-        if (httpResponse.statusCode() == ResponseCode.SUCCESS) {
-            return gson.fromJson(httpResponse.body(), new WordleServerStatisticTypeToken().getType());
-        } else {
-            throw new RuntimeException("Failed : HTTP error code : " + httpResponse.statusCode());
+        throwIfNotSuccessResponse(httpResponse);
+        return gson.fromJson(httpResponse.body(), new WordleServerStatisticTypeToken().getType());
+    }
+
+    private void throwIfNotSuccessResponse(HttpResponse<?> response) {
+        if (response.statusCode() != ResponseCode.SUCCESS) {
+            throw new RuntimeException("Failed : HTTP error code : " + response.statusCode());
         }
     }
 }

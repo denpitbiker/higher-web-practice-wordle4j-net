@@ -33,10 +33,7 @@ public class WordUtil {
         return true;
     }
 
-    public static String normalizeWord(String rawWord) throws NullPointerException {
-        if (rawWord == null) {
-            throw new NullPointerException("Слово не было передано");
-        }
+    public static String normalizeWord(String rawWord) {
         return rawWord.toLowerCase().replaceAll("ё", "е");
     }
 }

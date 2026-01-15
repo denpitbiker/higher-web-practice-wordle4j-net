@@ -17,8 +17,8 @@ public class WordleDictionaryLoader {
         this.logger = logger;
     }
 
-    public WordleDictionary loadWords(String fileName, int wordLength) throws IOException {
-        WordleDictionary wordleDictionary = new WordleDictionary(wordLength);
+    public WordleDictionary loadWords(String fileName, int wordLength, String validCharsRegex) throws IOException {
+        WordleDictionary wordleDictionary = new WordleDictionary(wordLength, validCharsRegex);
         File dictionaryFile = getDictionaryFile(fileName);
         logger.log(TAG, "Открыт файл словаря: " + dictionaryFile.getAbsolutePath());
         wordleDictionary.addAll(loadWordsToList(dictionaryFile));
