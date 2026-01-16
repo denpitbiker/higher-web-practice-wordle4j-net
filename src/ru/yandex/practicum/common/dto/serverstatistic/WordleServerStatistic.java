@@ -51,8 +51,8 @@ public class WordleServerStatistic {
         return item.clone();
     }
 
-    public Optional<WordleServerStatistic> getUserStatistic(String username, int beforeCount, int afterCount) {
-        if (beforeCount < 0 || afterCount < 0) return Optional.empty();
+    public Optional<WordleServerStatistic> getUserStatistic(String username, int showLimit) {
+        if (showLimit < 0) return Optional.empty();
 
         int ind = findUserIndex(username);
         if (ind == -1) {
@@ -60,12 +60,13 @@ public class WordleServerStatistic {
         }
         int sliceStartPosition;
         int sliceEndPosition;
-        if (ind < beforeCount + afterCount) {
+        if (ind < showLimit) {
             sliceStartPosition = 0;
-            sliceEndPosition = min(rating.size(), beforeCount + afterCount);
+            sliceEndPosition = min(rating.size(), showLimit);
         } else {
+            // Let's just show who is after user
             sliceStartPosition = ind;
-            sliceEndPosition = min(rating.size(), ind + afterCount + 1);
+            sliceEndPosition = min(rating.size(), ind + showLimit + 1);
         }
         WordleServerStatistic userStatistics =
                 new WordleServerStatistic(new ArrayList<>(rating.subList(sliceStartPosition, sliceEndPosition)));

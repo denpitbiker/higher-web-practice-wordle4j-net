@@ -26,15 +26,20 @@ public class ApiUrlBuilder {
         StringBuilder queriesString = new StringBuilder();
         int position = 0;
         for (Map.Entry<String, String> queryParam : queryParams) {
-                queriesString.append(queryParam.getKey())
-                        .append(QUERY_KEY_VALUE_SEPARATOR)
-                        .append(queryParam.getValue());
+            queriesString.append(queryParam.getKey())
+                    .append(QUERY_KEY_VALUE_SEPARATOR)
+                    .append(queryParam.getValue());
 
-                if (position != queryParams.length - 1) {
-                    queriesString.append(QUERIES_SEPARATOR);
-                }
+            if (position++ != queryParams.length - 1) {
+                queriesString.append(QUERIES_SEPARATOR);
+            }
         }
         String encodedQueries = URLEncoder.encode(queriesString.toString(), StandardCharsets.UTF_8);
-        return URI.create(host + route + QUERIES_BEGIN + encodedQueries);
+        StringBuilder url = new StringBuilder();
+        url.append(host).append(route);
+        if (!encodedQueries.isEmpty()) {
+            url.append(QUERIES_BEGIN).append(encodedQueries);
+        }
+        return URI.create(url.toString());
     }
 }

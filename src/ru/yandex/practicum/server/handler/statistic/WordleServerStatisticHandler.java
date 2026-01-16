@@ -16,18 +16,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 public class WordleServerStatisticHandler extends BaseHttpHandler {
-    public static final String DB_JSON = "stats.json";
     public static final String PATH = "/api/statistic";
 
+    private static final String USERNAME_PARAM_KEY = "username";
+    private static final int USER_RATING_SHOW_LIMIT = 10;
+    private final WordleServerStatistic statisticsCache;
     private final WordleServerStatisticRepository loader;
     private final Gson gson;
-    private static final String USERNAME_PARAM_KEY = "username";
-    private static final int USER_RATING_BEFORE_COUNT = 5;
-    private static final int USER_RATING_AFTER_COUNT = 5;
-    private final WordleServerStatistic statisticsCache;
 
-    public WordleServerStatisticHandler(Gson gson) throws IOException {
-        this.loader = new WordleServerStatisticRepository(gson, DB_JSON);
+    public WordleServerStatisticHandler(Gson gson, String statisticJsonPath) throws IOException {
+        this.loader = new WordleServerStatisticRepository(gson, statisticJsonPath);
         this.gson = gson;
         this.statisticsCache = loader.load();
     }
@@ -79,6 +77,6 @@ public class WordleServerStatisticHandler extends BaseHttpHandler {
     }
 
     private Optional<WordleServerStatistic> getStatisticForUser(String username) {
-        return statisticsCache.getUserStatistic(username, USER_RATING_BEFORE_COUNT, USER_RATING_AFTER_COUNT);
+        return statisticsCache.getUserStatistic(username, USER_RATING_SHOW_LIMIT);
     }
 }

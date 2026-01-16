@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import ru.yandex.practicum.client.util.Logger;
 import ru.yandex.practicum.common.ResponseCode;
+import ru.yandex.practicum.common.ServerConst;
 import ru.yandex.practicum.common.dto.clientresult.WordleClientResult;
 import ru.yandex.practicum.common.dto.serverstatistic.WordleServerStatistic;
 import ru.yandex.practicum.common.dto.serverstatistic.WordleServerStatisticTypeToken;
@@ -27,7 +28,6 @@ public class WordleClient {
             HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
 
     private static final String STATISTICS_ROUTE = "/api/statistic";
-    private static final String USERNAME_PARAM_KEY = "username";
 
     public WordleClient(Logger logger, String ip, int port) {
         this.logger = logger;
@@ -49,7 +49,7 @@ public class WordleClient {
 
     public WordleServerStatistic getStatistic(String username) throws IOException, InterruptedException {
         logger.log(TAG, "Запрос статистики для пользователя: " + username);
-        URI uri = apiUrlBuilder.buildUrl(STATISTICS_ROUTE, new AbstractMap.SimpleEntry<>(USERNAME_PARAM_KEY, username));
+        URI uri = apiUrlBuilder.buildUrl(STATISTICS_ROUTE, new AbstractMap.SimpleEntry<>(ServerConst.USERNAME_PARAM_KEY, username));
         HttpRequest httpRequest = HttpRequest.newBuilder().uri(uri).GET().build();
         HttpResponse<String> httpResponse = httpClient.send(httpRequest, bodyHandler);
         logger.log(TAG, "Получена статистика по пользователю, код: " + httpResponse.statusCode());

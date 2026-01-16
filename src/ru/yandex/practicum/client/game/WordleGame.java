@@ -26,10 +26,22 @@ public class WordleGame {
         this.logger = logger;
         this.state = new WordleGameState(dictionary);
         logger.log(TAG, "В словарь игры загружено " + dictionary.size() + " слов");
+        reset();
     }
 
     public String getAnswer() {
         return state.getAnswer();
+    }
+
+    public void setAnswer(String answer) throws WordleGameEmptyWordsCollectionException, WordleGameWordNotFoundInDictionary {
+        logger.log(TAG, "Принудительная установка правильного ответа на: " + answer);
+        if (answer == null) return;
+        reset();
+        String normalizedAnswer = normalizeWord(answer); // we don't need to check there length and else,
+                                                         // because we'll just look up for it in the dictionary.
+        if(!state.getGameDictionary().contains(normalizedAnswer)) throw new WordleGameWordNotFoundInDictionary(normalizedAnswer);
+        state.setAnswer(normalizedAnswer);
+        logger.log(TAG, "Принудительный ответ установлен: " + normalizedAnswer);
     }
 
     public boolean hasUsedHint() {
@@ -57,7 +69,8 @@ public class WordleGame {
 
     public String checkWord(String rawCandidate) throws WordleGameNoAttemptsLeftException, WordleGameWrongWordLengthException,
             WordleGameIncorrectWordException, WordleGameWordNotFoundInDictionary {
-        logger.log(TAG, "Проверка введенного слова");
+        logger.log(TAG, "Проверка введенного слова: " + rawCandidate);
+        if (rawCandidate == null) throw new WordleGameIncorrectWordException(null);
         throwIfNoAttemptsLeft();
         String candidate = normalizeWord(rawCandidate);
         validateWord(candidate);
@@ -75,10 +88,6 @@ public class WordleGame {
 
         logger.log(TAG, "Слово не отгадано, осталось попыток: " + (MAX_STEPS - state.getUsedAttempts()));
         return getCandidatePattern(candidate);
-    }
-
-    public String getState() {
-        return String.format("попыток %d/%d", MAX_STEPS - state.getUsedAttempts(), MAX_STEPS);
     }
 
     public String guessWord() throws WordleGameEmptyWordsCollectionException, WordleGameNoAttemptsLeftException {

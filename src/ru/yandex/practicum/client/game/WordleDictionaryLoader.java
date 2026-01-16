@@ -18,6 +18,7 @@ public class WordleDictionaryLoader {
     }
 
     public WordleDictionary loadWords(String fileName, int wordLength, String validCharsRegex) throws IOException {
+        if (wordLength < 1) throw new RuntimeException("Неверно задана длина слова для чтения из файла");
         WordleDictionary wordleDictionary = new WordleDictionary(wordLength, validCharsRegex);
         File dictionaryFile = getDictionaryFile(fileName);
         logger.log(TAG, "Открыт файл словаря: " + dictionaryFile.getAbsolutePath());

@@ -32,7 +32,14 @@ public class WordleGameState {
         okLetters.clear();
         okLetters.addAll(Arrays.asList(new Character[gameDictionary.getWordLength()]));
         leftWords.addAll(gameDictionary.getAll());
-        answer = leftWords.getRandomWord();
+        if (answer != null && leftWords.size() > 1) {
+            String oldAnswer = answer;
+            do {
+                answer = leftWords.getRandomWord();
+            } while (oldAnswer.equals(answer));
+        } else {
+            answer = leftWords.getRandomWord();
+        }
     }
 
     public WordleDictionary getGameDictionary() {
@@ -73,6 +80,10 @@ public class WordleGameState {
 
     public boolean hasUsedHint() {
         return hasUsedHint;
+    }
+
+    public void setAnswer(String answer) {
+        this.answer = answer;
     }
 
     public void setGameProgressState(GameProgressState gameProgressState) {
