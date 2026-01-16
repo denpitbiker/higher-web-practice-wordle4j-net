@@ -31,7 +31,7 @@ public class WordleDictionaryLoaderTest {
 
     @Test
     @DisplayName("Проверка загрузки слов из несуществующего файла")
-    public void loadWords_LoadWordsFromNonExistingFile_FileNotFoundException() throws IOException {
+    public void loadWords_LoadWordsFromNonExistingFile_FileNotFoundException() {
         // given
         String stubFileName = String.valueOf(System.currentTimeMillis());
         // then

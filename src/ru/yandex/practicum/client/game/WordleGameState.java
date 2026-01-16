@@ -103,6 +103,6 @@ public class WordleGameState {
     }
 
     public enum GameProgressState {
-        PLAY, NO_ATTEMPTS, WIN;
+        PLAY, NO_ATTEMPTS, WIN
     }
 }
